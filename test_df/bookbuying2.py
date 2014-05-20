@@ -41,7 +41,7 @@ class DummyBehaviour(Behaviour):
 class SearchServiceAgentsBehaviour(SendBehaviour):
     def setup(self, service):
         self.performative = ACLMessage.QUERY_REF
-        self.receivers = [ AID('DF') ]
+        self.receivers = [ AID('DF@localhost:9000') ]
         self.content = service
 
 class ReceiveServiceAgentsBehaviour(ReceiveBehaviour):
