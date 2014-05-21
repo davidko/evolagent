@@ -13,18 +13,24 @@ class EvolError(Exception):
 class Chromosome():
     def __init__(self, genes=None):
         self._genes = genes
+        self._fitness = None
+
+    def __str__(self):
+        return '\n'.join(map(str, self.genes))
 
     def crossover(self, other):
+        "Override this function..."
         if len(self.genes) != len(other.genes):
             raise EvolError('Gene lengths do not match.')
         cutpoint = random.randint(1, len(self.genes)-1)
         # Use a random number to determine whose genes go first during
         # crossover
+        new_chro = None
         if random.randint(0, 1):
             new_chro = self.genes[0:cutpoint] + other.genes[cutpoint:]
         else:
             new_chro = other.genes[0:cutpoint] + self.genes[cutpoint:]
-        return Chromosome(newchro)
+        return Chromosome(new_chro)
 
     def __get_genes(self):
         return self._genes
@@ -35,8 +41,13 @@ class Chromosome():
     genes = property(__get_genes, __set_genes, None, "list of genes")
 
     def fitness_function(self):
+        """ Override this function to return the fitness of the chromosome."""
         raise Exception('fitness_function() must be overridden.')
 
 class EvolAgent(Agent):
     def setup(self, chromosome):
+        self.__chromosome = chromosome
         pass
+
+    def fitness_function(self):
+        self.__fitness = self.__chromosome.fitness_function()
