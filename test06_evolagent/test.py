@@ -118,8 +118,12 @@ class ComputeFitnessBehaviour(Behaviour):
 class GaitAgentHandleRequestBehaviour(RequestParticipantBehaviour):
     def perform_request(self, content):
         if content == 'die':
-            self.agent.add_behaviour(
+            seq = SequentialBehaviour()
+            seq.add_behaviour(
                 UnregisterServiceBehaviour(service=Service('EvolAgent')))
+            seq.add_behaviour(
+                DieBehaviour() )
+            self.agent.add_behaviour(seq)
             self.dieflag = True
             self.result_msg = None
         elif content == 'fitness':
@@ -142,14 +146,6 @@ class GaitAgent(Agent):
         self.chromosome = GaitChromosome(chromosome)
         behaviours = SequentialBehaviour()
         behaviours.add_behaviour(ComputeFitnessBehaviour())
-        # Report fitness to master
-        """
-        behaviours.add_behaviour(
-            SendBehaviour(
-                performative=ACLMessage.INFORM,
-                receivers=[ AID('MasterAgent') ],
-                content=self.fitness))
-        """
         behaviours.add_behaviour(
             RegisterServiceBehaviour(service=Service('EvolAgent')))
         behaviours.add_behaviour(GaitAgentHandleRequestBehaviour())
@@ -169,6 +165,10 @@ class UnregisterServiceBehaviour(SendBehaviour):
         service = service
         self.content = service
 
+class DieBehaviour(Behaviour):
+    def action(self):
+        self.agent.die()
+
 class GetDfServicesTicker(TickerBehaviour):
     def setup(self, service):
         self.service = service
@@ -182,15 +182,16 @@ class KillAgentTicker(TickerBehaviour):
         print ('Current list of agents and fitnesses:')
         for entry in self.agent.sorted_fitnesses:
             print entry['fitness']
-        # Find a random agent and send it the kill message
+        # Kill the weakest agent
         try:
-            print('peer agents: {0}'.format(self.agent.peer_agents))
-            agent = random.choice(self.agent.peer_agents)
+            agent = self.agent.sorted_fitnesses.pop(0)['agent_id']
             print('Sending kill command to {0}...'.format(agent))
             self.agent.add_behaviour(
                 RequestInitiatorBehaviour(
                     store=agent,
                     request='die'))
+            # Need to remove entry for that entry in our list
+            
         except:
             pass
 
@@ -215,7 +216,7 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
             self.agent.sorted_fitnesses = []
             for (sender_id, item) in self.agent.fitness_datastore.items():
                 self.agent.sorted_fitnesses.append( {
-                    'sender_id':sender_id,
+                    'agent_id':sender_id,
                     'fitness':item['fitness'],
                     'chromosome':item['chromosome'] } )
             self.agent.sorted_fitnesses.sort(
