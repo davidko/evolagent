@@ -205,7 +205,10 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
         print('Master got fitness from agent: {0}'.format(message.content))
         try:
             content = serpent.loads(message.content)
-            self.agent.fitness_datastore[message.sender] = (time.time(), content)
+            self.agent.fitness_datastore[message.sender] = \
+                { 'timestamp':time.time(),
+                  'fitness':content['fitness'],
+                  'chromosome':content['chromosome'] }
             logging.info('{0} reports fitness {1}'.format(message.sender,
                 content['fitness']))
             # Create sorted list of fitnesses
@@ -213,8 +216,8 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
             for (sender_id, item) in self.agent.fitness_datastore.items():
                 self.agent.sorted_fitnesses.append( {
                     'sender_id':sender_id,
-                    'fitness':item[1]['fitness'],
-                    'chromosome':item[1]['chromosome'] } )
+                    'fitness':item['fitness'],
+                    'chromosome':item['chromosome'] } )
             self.agent.sorted_fitnesses.sort(
                 key=lambda x: x['fitness'] )
 
