@@ -29,7 +29,8 @@ import logging
 def timestamp():
     return datetime.datetime.now().strftime('%Y%m%d-%H%M')
 
-logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()))
+logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()),
+    level=logging.DEBUG)
 
 class GaitChromosome(Chromosome):
     fitness_function_lock = threading.Condition()
@@ -105,7 +106,6 @@ class ComputeFitnessBehaviour(Behaviour):
     def action(self):
         self.agent.fitness = self.agent.chromosome.fitness_function()
         # Report our fitness to the master agent
-        logging.debug('Agent {0} Reporting fitness...'.format(self.agent.name))
         msg = ACLMessage(performative=ACLMessage.INFORM)
         content = { 'fitness':self.agent.fitness, 
                     'chromosome':self.agent.chromosome}
@@ -179,6 +179,9 @@ class GetDfServicesTicker(TickerBehaviour):
 
 class KillAgentTicker(TickerBehaviour):
     def on_tick(self):
+        print ('Current list of agents and fitnesses:')
+        for entry in self.agent.sorted_fitnesses:
+            print entry['fitness']
         # Find a random agent and send it the kill message
         try:
             print('peer agents: {0}'.format(self.agent.peer_agents))
@@ -205,20 +208,31 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
             self.agent.fitness_datastore[message.sender] = (time.time(), content)
             logging.info('{0} reports fitness {1}'.format(message.sender,
                 content['fitness']))
+            # Create sorted list of fitnesses
+            self.agent.sorted_fitnesses = []
+            for (sender_id, item) in self.agent.fitness_datastore.items():
+                self.agent.sorted_fitnesses.append( {
+                    'sender_id':sender_id,
+                    'fitness':item[1]['fitness'],
+                    'chromosome':item[1]['chromosome'] } )
+            self.agent.sorted_fitnesses.sort(
+                key=lambda x: x['fitness'] )
+
         except: 
             pass
 
 class MasterAgent(Agent):
     def setup(self):
         self.add_behaviour(GetDfServicesTicker(service=Service('EvolAgent')))
-        #self.add_behaviour(KillAgentTicker())
+        self.add_behaviour(KillAgentTicker())
         self.add_behaviour(ReceiveAgentFitnessBehaviour())
         self.fitness_datastore = {}
+        self.sorted_fitnesses = []
     
         
 class MyApp(App):
     def run(self, args):
-        for i in range(4):
+        for i in range(10):
             self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
         #self.start_agent(MasterAgent, 'agent2')
         #self.start_agent(MasterAgent, 'agent3')
