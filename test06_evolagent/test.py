@@ -95,7 +95,7 @@ class ComputeFitnessBehaviour(Behaviour):
         self.agent.fitness = self.agent.chromosome.fitness_function()
         # Report our fitness to the master agent
         msg = ACLMessage(performative=ACLMessage.INFORM)
-        msg.content = self.agent.fitness
+        msg.content = (self.agent.fitness, self.agent.chromosome)
         msg.receivers = [ AID('MasterAgent') ]
         self.agent.send_message(msg)
         self.set_done()
