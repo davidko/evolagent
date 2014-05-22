@@ -20,6 +20,17 @@ from spyse.core.content.content import ACLMessage, MessageTemplate
 
 from evolagent import Chromosome
 
+import datetime
+import time
+import serpent
+
+import logging
+
+def timestamp():
+    return datetime.datetime.now().strftime('%Y%m%d-%H%M')
+
+logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()))
+
 class GaitChromosome(Chromosome):
     fitness_function_lock = threading.Condition()
     fitness_function_num_instances = 0
@@ -94,9 +105,13 @@ class ComputeFitnessBehaviour(Behaviour):
     def action(self):
         self.agent.fitness = self.agent.chromosome.fitness_function()
         # Report our fitness to the master agent
+        logging.debug('Agent {0} Reporting fitness...'.format(self.agent.name))
         msg = ACLMessage(performative=ACLMessage.INFORM)
-        msg.content = (self.agent.fitness, self.agent.chromosome)
+        content = { 'fitness':self.agent.fitness, 
+                    'chromosome':self.agent.chromosome}
+        msg.content = serpent.dumps(content)
         msg.receivers = [ AID('MasterAgent') ]
+        msg.protocol = 'report_fitness'
         self.agent.send_message(msg)
         self.set_done()
 
@@ -179,12 +194,19 @@ class KillAgentTicker(TickerBehaviour):
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
     def __init__(self, **namedargs):
         template = MessageTemplate(performative=MessageTemplate.INFORM)
+        template.protocol = 'report_fitness'
         super(ReceiveAgentFitnessBehaviour, self).__init__(
             template=template, **namedargs)
 
     def handle_message(self, message):
         print('Master got fitness from agent: {0}'.format(message.content))
-        self.agent.fitness_datastore[message.sender] = message.content
+        try:
+            content = serpent.loads(message.content)
+            self.agent.fitness_datastore[message.sender] = (time.time(), content)
+            logging.info('{0} reports fitness {1}'.format(message.sender,
+                content['fitness']))
+        except: 
+            pass
 
 class MasterAgent(Agent):
     def setup(self):
@@ -196,7 +218,7 @@ class MasterAgent(Agent):
         
 class MyApp(App):
     def run(self, args):
-        for i in range(40):
+        for i in range(4):
             self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
         #self.start_agent(MasterAgent, 'agent2')
         #self.start_agent(MasterAgent, 'agent3')
