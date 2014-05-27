@@ -6,6 +6,8 @@ import subprocess
 import math
 import threading
 
+from spyse.app.app import App
+"""
 from spyse.core.agents.aid import AID
 from spyse.core.agents.agent import Agent
 from spyse.app.app import App
@@ -19,8 +21,9 @@ from spyse.core.behaviours.behaviours import TickerBehaviour, SendBehaviour, \
 from spyse.core.behaviours.composite import SequentialBehaviour
 from spyse.core.platform.df import Service
 from spyse.core.content.content import ACLMessage, MessageTemplate
+"""
 
-from evolagent import Chromosome
+from evolagent import Chromosome, EvolAgent, MasterAgent
 
 import datetime
 import time
@@ -84,227 +87,11 @@ class GaitChromosome(Chromosome):
             new_chro = other.genes[0:cutpoint] + self.genes[cutpoint:]
         return GaitChromosome(new_chro)
 
-class GetDfServicesBehaviour(QueryInitiatorBehaviour):
-    def setup(self, datastore={}):
-        self.__datastore = datastore
-
-    def handle_no_participant(self):
-        print('Error: Could not send message to DF')
-
-    def handle_response(self):
-        print('Got response from DF.') 
-
-    def handle_inform(self, content):
-        print('Recived: {0} from DF'.format(content))
-        self.agent.peer_agents = content
-        self.__datastore['providers'] = content
-
-    def handle_agree(self):
-        print('Got agree.')
-
-    def handle_failure(self):
-        print('Got failure.')
-
-    def cancel(self):
-        print('Got cancel.')
-
-class ComputeFitnessBehaviour(Behaviour):
-    def action(self):
-        self.agent.fitness = self.agent.chromosome.fitness_function()
-        # Report our fitness to the master agent
-        msg = ACLMessage(performative=ACLMessage.INFORM)
-        content = { 'fitness':self.agent.fitness, 
-                    'chromosome':self.agent.chromosome}
-        msg.content = serpent.dumps(content)
-        msg.receivers = [ AID('MasterAgent') ]
-        msg.protocol = 'report_fitness'
-        self.agent.send_message(msg)
-        self.set_done()
-
-class MateBehaviour(SequentialBehaviour):
-    MAX_PROPOSALS = 10
-    class TrimProvidersBehaviour(Behaviour):
-        def setup(self, datastore, max_providers = 10):
-            self.__max_providers = max_providers
-            self.__datastore = datastore
-
-        def action(self):
-            self.__datastore['providers'] = random.sample(
-                self.__datastore['providers'], self.__max_providers)
-            
-    class SelectMateBehaviour(ContractNetInitiatorBehaviour):
-        def setup(self):
-            pass
-
-        def select_proposal(self, proposals):
-            # Just select the best one
-            best_fitness = 0
-            best_proposal = None
-            for proposal in proposals:
-                if proposal['fitness'] > best_fitness:
-                    best_fitness = proposal['fitness']
-                    best_proposal = proposal
-            return best_proposal
-
-        def process_result(self, result=None):
-            # result should be a Chromosome, if it is a result.
-            if result is None:
-                return
-            # Create a new child here, TODO
-
-    def __init__(self, *args, **kwargs):
-        super(MateBehaviour, self).__init__(*args, **kwargs)
-        # First, get df services
-        if 'datastore' in kwargs:
-            datastore = kwargs['datastore']
-        else:
-            datastore = {}
-        self.add_behaviour(GetDfServicesBehaviour(store=AID('DF'),
-            request=Service('EvolAgent'),
-            datastore=datastore))
-        # Trim the list of potential providers to a more managable number
-        self.add_behaviour(TrimProvidersBehaviour(datastore=datastore,
-            max_providers = MAX_PROPOSALS))
-        # Next, choose a remote agent and get its fitness/chromosome
-        # This is the Contract-Net protocol. 
-        self.add_behaviour(SelectMateBehaviour()) 
-
-class GaitAgentHandleRequestBehaviour(RequestParticipantBehaviour):
-    def perform_request(self, content):
-        if content == 'die':
-            seq = SequentialBehaviour()
-            seq.add_behaviour(
-                UnregisterServiceBehaviour(service=Service('EvolAgent')))
-            seq.add_behaviour(
-                DieBehaviour() )
-            self.agent.add_behaviour(seq)
-            self.dieflag = True
-            self.result_msg = None
-        elif content == 'fitness':
-            self.result_msg = self.agent.fitness
-        elif content == 'genes':
-            self.result_msg = self.agent.chromosome
-        else:
-            self.dieflag = False
-
-        return True
-
-    def send_result(self):
-        return self.result_msg
-
-class GaitAgent(Agent):
-    def setup(self, chromosome=None, fitness=None):
-        if chromosome is None:
-            chromosome = [random.randint(0, 255) for _ in range(120)]
-        
-        self.chromosome = GaitChromosome(chromosome)
-        behaviours = SequentialBehaviour()
-        behaviours.add_behaviour(ComputeFitnessBehaviour())
-        behaviours.add_behaviour(
-            RegisterServiceBehaviour(service=Service('EvolAgent')))
-        behaviours.add_behaviour(GaitAgentHandleRequestBehaviour())
-        self.add_behaviour(behaviours)
-
-class RegisterServiceBehaviour(SendBehaviour):
-    def setup(self, service):
-        self.performative = ACLMessage.REQUEST
-        self.receivers = [ AID('DF') ]
-        service = service
-        self.content = service
-
-class UnregisterServiceBehaviour(SendBehaviour):
-    def setup(self, service):
-        self.performative = ACLMessage.CANCEL
-        self.receivers = [ AID('DF') ]
-        service = service
-        self.content = service
-
-class DieBehaviour(Behaviour):
-    def action(self):
-        self.agent.die()
-
-class GetDfServicesTicker(TickerBehaviour):
-    def setup(self, service, datastore={}):
-        self.service = service
-        self.__datastore = datastore
-
-    #def on_action(self):
-        #print('.')
-
-    def on_tick(self):
-        print('Polling df...')
-        self.agent.add_behaviour(GetDfServicesBehaviour(store=AID('DF'),
-            request=self.service, datastore=self.__datastore))
-
-class KillAgentTicker(TickerBehaviour):
-    def on_tick(self):
-        if self.agent.sorted_fitnesses is None or \
-            len(self.agent.sorted_fitnesses) == 0:
-                return
-        print ('Current list of agents and fitnesses:')
-        for entry in self.agent.sorted_fitnesses:
-            print entry['fitness']
-        # If there are too many agents, kill the weakest ones
-        while len(self.agent.sorted_fitnesses) > self.agent.max_agent_population:
-            try:
-                agent = self.agent.sorted_fitnesses.pop(0)['agent_id']
-                print('Sending kill command to {0}...'.format(agent))
-                self.agent.add_behaviour(
-                    RequestInitiatorBehaviour(
-                        store=agent,
-                        request='die'))
-                # Need to remove entry for that entry in our list
-                
-            except:
-                pass
-
-class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
-    def __init__(self, **namedargs):
-        template = MessageTemplate(performative=MessageTemplate.INFORM)
-        template.protocol = 'report_fitness'
-        super(ReceiveAgentFitnessBehaviour, self).__init__(
-            template=template, **namedargs)
-
-    def handle_message(self, message):
-        print('Master got fitness from agent: {0}'.format(message.content))
-        try:
-            content = serpent.loads(message.content)
-            self.agent.fitness_datastore[message.sender] = \
-                { 'timestamp':time.time(),
-                  'fitness':content['fitness'],
-                  'chromosome':content['chromosome'] }
-            logging.info('{0} reports fitness {1}'.format(message.sender,
-                content['fitness']))
-            # Create sorted list of fitnesses
-            self.agent.sorted_fitnesses = []
-            for (sender_id, item) in self.agent.fitness_datastore.items():
-                self.agent.sorted_fitnesses.append( {
-                    'agent_id':sender_id,
-                    'fitness':item['fitness'],
-                    'chromosome':item['chromosome'] } )
-            self.agent.sorted_fitnesses.sort(
-                key=lambda x: x['fitness'] )
-
-        except: 
-            pass
-
-class MasterAgent(Agent):
-    def setup(self, max_agent_population=20):
-        self.max_agent_population = max_agent_population
-        self.datastore = {}
-        self.df_datastore = {}
-        self.add_behaviour(GetDfServicesTicker(service=Service('EvolAgent'),
-            datastore=self.df_datastore))
-        self.add_behaviour(KillAgentTicker())
-        self.add_behaviour(ReceiveAgentFitnessBehaviour())
-        self.fitness_datastore = {}
-        self.sorted_fitnesses = []
-    
-        
 class MyApp(App):
     def run(self, args):
-        for i in range(20):
-            self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
+        for i in range(1):
+            self.start_agent(EvolAgent, 'gaitagent{0}'.format(i), 
+                ChromosomeClass=GaitChromosome)
         #self.start_agent(MasterAgent, 'agent2')
         #self.start_agent(MasterAgent, 'agent3')
         self.start_agent(MasterAgent, 'MasterAgent')

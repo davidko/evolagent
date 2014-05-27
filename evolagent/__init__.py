@@ -4,6 +4,10 @@ from spyse.core.agents.agent import Agent
 from spyse.core.behaviours.fsm import FSMBehaviour, State
 from spyse.core.behaviours.behaviours import Behaviour
 
+from evolagent.agent import EvolAgent
+from evolagent.masteragent import MasterAgent
+import evolagent.behaviours
+
 import random
 
 class EvolError(Exception):
@@ -44,10 +48,3 @@ class Chromosome():
         """ Override this function to return the fitness of the chromosome."""
         raise Exception('fitness_function() must be overridden.')
 
-class EvolAgent(Agent):
-    def setup(self, chromosome):
-        self.__chromosome = chromosome
-        pass
-
-    def fitness_function(self):
-        self.__fitness = self.__chromosome.fitness_function()
