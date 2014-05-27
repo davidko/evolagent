@@ -11,6 +11,8 @@ from spyse.core.agents.agent import Agent
 from spyse.app.app import App
 from spyse.core.protocols.request import RequestInitiatorBehaviour, \
     RequestParticipantBehaviour
+from spyse.core.protocols.contractnet import ContractNetInitiatorBehaviour, \
+    ContractNetParticipantBehaviour
 from spyse.core.protocols.query import QueryInitiatorBehaviour
 from spyse.core.behaviours.behaviours import TickerBehaviour, SendBehaviour, \
     Behaviour, ReceiveBehaviour
@@ -40,7 +42,7 @@ class GaitChromosome(Chromosome):
     def fitness_function(self):
         cls = self.__class__
         cls.fitness_function_lock.acquire()
-        while cls.fitness_function_num_instances > \
+        while cls.fitness_function_num_instances >= \
             cls.fitness_function_max_instances:
                 cls.fitness_function_lock.wait()
 
@@ -83,6 +85,9 @@ class GaitChromosome(Chromosome):
         return GaitChromosome(new_chro)
 
 class GetDfServicesBehaviour(QueryInitiatorBehaviour):
+    def setup(self, datastore={}):
+        self.__datastore = datastore
+
     def handle_no_participant(self):
         print('Error: Could not send message to DF')
 
@@ -92,6 +97,7 @@ class GetDfServicesBehaviour(QueryInitiatorBehaviour):
     def handle_inform(self, content):
         print('Recived: {0} from DF'.format(content))
         self.agent.peer_agents = content
+        self.__datastore['providers'] = content
 
     def handle_agree(self):
         print('Got agree.')
@@ -114,6 +120,54 @@ class ComputeFitnessBehaviour(Behaviour):
         msg.protocol = 'report_fitness'
         self.agent.send_message(msg)
         self.set_done()
+
+class MateBehaviour(SequentialBehaviour):
+    MAX_PROPOSALS = 10
+    class TrimProvidersBehaviour(Behaviour):
+        def setup(self, datastore, max_providers = 10):
+            self.__max_providers = max_providers
+            self.__datastore = datastore
+
+        def action(self):
+            self.__datastore['providers'] = random.sample(
+                self.__datastore['providers'], self.__max_providers)
+            
+    class SelectMateBehaviour(ContractNetInitiatorBehaviour):
+        def setup(self):
+            pass
+
+        def select_proposal(self, proposals):
+            # Just select the best one
+            best_fitness = 0
+            best_proposal = None
+            for proposal in proposals:
+                if proposal['fitness'] > best_fitness:
+                    best_fitness = proposal['fitness']
+                    best_proposal = proposal
+            return best_proposal
+
+        def process_result(self, result=None):
+            # result should be a Chromosome, if it is a result.
+            if result is None:
+                return
+            # Create a new child here, TODO
+
+    def __init__(self, *args, **kwargs):
+        super(MateBehaviour, self).__init__(*args, **kwargs)
+        # First, get df services
+        if 'datastore' in kwargs:
+            datastore = kwargs['datastore']
+        else:
+            datastore = {}
+        self.add_behaviour(GetDfServicesBehaviour(store=AID('DF'),
+            request=Service('EvolAgent'),
+            datastore=datastore))
+        # Trim the list of potential providers to a more managable number
+        self.add_behaviour(TrimProvidersBehaviour(datastore=datastore,
+            max_providers = MAX_PROPOSALS))
+        # Next, choose a remote agent and get its fitness/chromosome
+        # This is the Contract-Net protocol. 
+        self.add_behaviour(SelectMateBehaviour()) 
 
 class GaitAgentHandleRequestBehaviour(RequestParticipantBehaviour):
     def perform_request(self, content):
@@ -170,30 +224,39 @@ class DieBehaviour(Behaviour):
         self.agent.die()
 
 class GetDfServicesTicker(TickerBehaviour):
-    def setup(self, service):
+    def setup(self, service, datastore={}):
         self.service = service
+        self.__datastore = datastore
+
+    #def on_action(self):
+        #print('.')
+
     def on_tick(self):
         print('Polling df...')
         self.agent.add_behaviour(GetDfServicesBehaviour(store=AID('DF'),
-            request=self.service))
+            request=self.service, datastore=self.__datastore))
 
 class KillAgentTicker(TickerBehaviour):
     def on_tick(self):
+        if self.agent.sorted_fitnesses is None or \
+            len(self.agent.sorted_fitnesses) == 0:
+                return
         print ('Current list of agents and fitnesses:')
         for entry in self.agent.sorted_fitnesses:
             print entry['fitness']
-        # Kill the weakest agent
-        try:
-            agent = self.agent.sorted_fitnesses.pop(0)['agent_id']
-            print('Sending kill command to {0}...'.format(agent))
-            self.agent.add_behaviour(
-                RequestInitiatorBehaviour(
-                    store=agent,
-                    request='die'))
-            # Need to remove entry for that entry in our list
-            
-        except:
-            pass
+        # If there are too many agents, kill the weakest ones
+        while len(self.agent.sorted_fitnesses) > self.agent.max_agent_population:
+            try:
+                agent = self.agent.sorted_fitnesses.pop(0)['agent_id']
+                print('Sending kill command to {0}...'.format(agent))
+                self.agent.add_behaviour(
+                    RequestInitiatorBehaviour(
+                        store=agent,
+                        request='die'))
+                # Need to remove entry for that entry in our list
+                
+            except:
+                pass
 
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
     def __init__(self, **namedargs):
@@ -226,8 +289,12 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
             pass
 
 class MasterAgent(Agent):
-    def setup(self):
-        self.add_behaviour(GetDfServicesTicker(service=Service('EvolAgent')))
+    def setup(self, max_agent_population=20):
+        self.max_agent_population = max_agent_population
+        self.datastore = {}
+        self.df_datastore = {}
+        self.add_behaviour(GetDfServicesTicker(service=Service('EvolAgent'),
+            datastore=self.df_datastore))
         self.add_behaviour(KillAgentTicker())
         self.add_behaviour(ReceiveAgentFitnessBehaviour())
         self.fitness_datastore = {}
@@ -236,7 +303,7 @@ class MasterAgent(Agent):
         
 class MyApp(App):
     def run(self, args):
-        for i in range(10):
+        for i in range(20):
             self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
         #self.start_agent(MasterAgent, 'agent2')
         #self.start_agent(MasterAgent, 'agent3')
