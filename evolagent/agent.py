@@ -13,6 +13,7 @@ from spyse.core.agents.aid import AID
 
 import random
 import serpent
+import logging
 
 import evolagent
 
@@ -92,6 +93,10 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
             self.result_msg = self.agent.fitness
         elif content == 'genes':
             self.result_msg = self.agent.chromosome
+        elif content == 'reproduce':
+            self.result_msg = None
+            logging.info(
+                '{0} received reproduce message.'.format(self.agent.name))
         else:
             self.dieflag = False
 

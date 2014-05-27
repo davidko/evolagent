@@ -7,22 +7,6 @@ import math
 import threading
 
 from spyse.app.app import App
-"""
-from spyse.core.agents.aid import AID
-from spyse.core.agents.agent import Agent
-from spyse.app.app import App
-from spyse.core.protocols.request import RequestInitiatorBehaviour, \
-    RequestParticipantBehaviour
-from spyse.core.protocols.contractnet import ContractNetInitiatorBehaviour, \
-    ContractNetParticipantBehaviour
-from spyse.core.protocols.query import QueryInitiatorBehaviour
-from spyse.core.behaviours.behaviours import TickerBehaviour, SendBehaviour, \
-    Behaviour, ReceiveBehaviour
-from spyse.core.behaviours.composite import SequentialBehaviour
-from spyse.core.platform.df import Service
-from spyse.core.content.content import ACLMessage, MessageTemplate
-"""
-
 from evolagent import Chromosome, EvolAgent, MasterAgent
 
 import datetime
@@ -35,7 +19,7 @@ def timestamp():
     return datetime.datetime.now().strftime('%Y%m%d-%H%M')
 
 logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()),
-    level=logging.DEBUG)
+    level=logging.INFO)
 
 class GaitChromosome(Chromosome):
     fitness_function_lock = threading.Condition()
@@ -89,12 +73,10 @@ class GaitChromosome(Chromosome):
 
 class MyApp(App):
     def run(self, args):
-        for i in range(1):
+        for i in range(20):
             self.start_agent(EvolAgent, 'gaitagent{0}'.format(i), 
                 ChromosomeClass=GaitChromosome)
-        #self.start_agent(MasterAgent, 'agent2')
-        #self.start_agent(MasterAgent, 'agent3')
-        self.start_agent(MasterAgent, 'MasterAgent')
+        self.start_agent(MasterAgent, 'MasterAgent', max_agent_population=30)
 
 if __name__=="__main__":
     MyApp()

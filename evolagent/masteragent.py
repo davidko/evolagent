@@ -4,19 +4,51 @@ from spyse.core.behaviours.behaviours import TickerBehaviour, ReceiveBehaviour
 from spyse.core.platform.df import Service
 from spyse.core.content.content import MessageTemplate
 from spyse.core.agents.aid import AID
+from spyse.core.protocols.request import RequestInitiatorBehaviour
+
+import random
+import logging
+import sets
 
 import evolagent
 
+class ReproLottoTicker(TickerBehaviour):
+    def setup(self, population=None, wait_ticks=3):
+        self.__population = population
+        self.__wait_ticks = wait_ticks
+
+    def on_tick(self):
+        logging.info('Lottery Tick!')
+        if self.__wait_ticks:
+            self.__wait_ticks -= 1
+            return
+        logging.info(self.__population)
+        try:
+            if len(self.__population) > self.agent.max_agent_population:
+                return
+            agents = random.sample(
+                self.__population,
+                self.agent.max_agent_population - len(self.__population))
+        except:
+            agents = self.__population
+
+        for agent in agents:
+            logging.info('Send Repro message to {0}'.format(agent))
+            self.agent.add_behaviour(
+                RequestInitiatorBehaviour(
+                    store=agent,
+                    request='reproduce'))
+
 class GetDfServicesTicker(TickerBehaviour):
-    def setup(self, service, datastore={}):
+    def setup(self, service, provider_results = None):
         self.service = service
-        self.__datastore = datastore
+        self.__provider_results = provider_results
 
     def on_tick(self):
         print('Polling df...')
         self.agent.add_behaviour(
             evolagent.behaviours.GetDfServicesBehaviour(store=AID('DF'),
-                request=self.service, datastore=self.__datastore))
+                request=self.service, provider_results=self.__provider_results))
 
 class KillAgentTicker(TickerBehaviour):
     def on_tick(self):
@@ -75,10 +107,12 @@ class MasterAgent(Agent):
         self.max_agent_population = max_agent_population
         self.datastore = {}
         self.df_datastore = {}
+        self.evolagent_providers = []
         self.add_behaviour(GetDfServicesTicker(service=Service('EvolAgent'),
-            datastore=self.df_datastore))
+            provider_results=self.evolagent_providers))
         self.add_behaviour(KillAgentTicker())
         self.add_behaviour(ReceiveAgentFitnessBehaviour())
+        self.add_behaviour(ReproLottoTicker(population=self.evolagent_providers))
         self.fitness_datastore = {}
         self.sorted_fitnesses = []
     
