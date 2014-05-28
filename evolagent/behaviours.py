@@ -3,7 +3,7 @@
 from spyse.core.protocols.query import QueryInitiatorBehaviour
 
 class GetDfServicesBehaviour(QueryInitiatorBehaviour):
-    def setup(self, provider_results=None):
+    def setup(self, provider_results=[]):
         self.__provider_results = provider_results
 
     def handle_no_participant(self):
@@ -13,7 +13,7 @@ class GetDfServicesBehaviour(QueryInitiatorBehaviour):
         print('Got response from DF.') 
 
     def handle_inform(self, content):
-        print('Received: {0} from DF'.format(content))
+        print('{0} Received: {1} from DF'.format(self.agent.name, content))
         self.agent.peer_agents = content
         self.__provider_results[:] = []
         self.__provider_results += content

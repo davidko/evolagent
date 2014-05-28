@@ -18,11 +18,10 @@ class ReproLottoTicker(TickerBehaviour):
         self.__wait_ticks = wait_ticks
 
     def on_tick(self):
-        logging.info('Lottery Tick!')
         if self.__wait_ticks:
             self.__wait_ticks -= 1
             return
-        logging.info(self.__population)
+        """
         try:
             if len(self.__population) > self.agent.max_agent_population:
                 return
@@ -33,11 +32,18 @@ class ReproLottoTicker(TickerBehaviour):
             agents = self.__population
 
         for agent in agents:
-            logging.info('Send Repro message to {0}'.format(agent))
+            logging.info('Master send Repro message to {0}'.format(agent))
             self.agent.add_behaviour(
                 RequestInitiatorBehaviour(
                     store=agent,
                     request='reproduce'))
+        """
+        agent = random.choice(self.__population)
+        logging.info('Master send Repro message to {0}'.format(agent))
+        self.agent.add_behaviour(
+            RequestInitiatorBehaviour(
+                store=agent,
+                request='reproduce'))
 
 class GetDfServicesTicker(TickerBehaviour):
     def setup(self, service, provider_results = None):

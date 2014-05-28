@@ -14,6 +14,7 @@ from spyse.core.agents.aid import AID
 import random
 import serpent
 import logging
+import time
 
 import evolagent
 
@@ -30,53 +31,91 @@ class ComputeFitnessBehaviour(Behaviour):
         self.agent.send_message(msg)
         self.set_done()
 
-class MateBehaviour(SequentialBehaviour):
-    MAX_PROPOSALS = 10
+class MateInitiatorBehaviour(SequentialBehaviour):
+    MAX_PROPOSALS = 2
     class TrimProvidersBehaviour(Behaviour):
-        def setup(self, datastore, max_providers = 10):
+        def setup(self, providers=[], max_providers = 10):
             self.__max_providers = max_providers
-            self.__datastore = datastore
+            self.__providers = providers 
 
         def action(self):
-            self.__datastore['providers'] = random.sample(
-                self.__datastore['providers'], self.__max_providers)
+            if len(self.__providers) > self.__max_providers:
+                sample = random.sample( self.__providers, self.__max_providers)
+                self.__providers[:] = []
+                self.__providers += sample
+                logging.info('{0} trimmed providers to {1}'.format(
+                    self.agent.name,
+                    self.__providers))
+            self.set_done()
             
     class SelectMateBehaviour(ContractNetInitiatorBehaviour):
-        def setup(self):
+        def __init__(self, *args, **kwargs):
+            logging.info('Select Mate Behaviour Init.')
+            datastore = {}
+            datastore['call'] = 'mate'
+            datastore['providers'] = kwargs['providers']
+            ContractNetInitiatorBehaviour.__init__(
+                self,
+                *args, 
+                datastore=datastore,
+                **kwargs)
+
+        def setup(self, providers=None):
             pass
 
         def select_proposal(self, proposals):
             # Just select the best one
-            best_fitness = 0
-            best_proposal = None
-            for proposal in proposals:
-                if proposal['fitness'] > best_fitness:
-                    best_fitness = proposal['fitness']
-                    best_proposal = proposal
-            return best_proposal
+            logging.info('{0} received proposals: {1}'.format(
+                self.agent.name,
+                proposals))
+            return max(proposals, key=lambda x: x['fitness'])
 
         def process_result(self, result=None):
             # result should be a Chromosome, if it is a result.
             if result is None:
                 return
             # Create a new child here, TODO
+            logging.info('{0} Creating new child!'.format(self.agent.name))
 
     def __init__(self, *args, **kwargs):
-        super(MateBehaviour, self).__init__(*args, **kwargs)
+        super(MateInitiatorBehaviour, self).__init__(*args, **kwargs)
         # First, get df services
         if 'datastore' in kwargs:
             datastore = kwargs['datastore']
         else:
             datastore = {}
-        self.add_behaviour(GetDfServicesBehaviour(store=AID('DF'),
-            request=Service('EvolAgent'),
-            datastore=datastore))
+        self.evol_agents=[]
+        self.add_behaviour(
+            evolagent.behaviours.GetDfServicesBehaviour(store=AID('DF'),
+                request=Service('EvolAgent'),
+                provider_results=self.evol_agents))
         # Trim the list of potential providers to a more managable number
-        self.add_behaviour(TrimProvidersBehaviour(datastore=datastore,
-            max_providers = MAX_PROPOSALS))
+        self.add_behaviour(self.TrimProvidersBehaviour(
+            providers=self.evol_agents,
+            max_providers = self.MAX_PROPOSALS))
         # Next, choose a remote agent and get its fitness/chromosome
         # This is the Contract-Net protocol. 
-        self.add_behaviour(SelectMateBehaviour()) 
+        logging.info('Adding Select Mate Behaviour...')
+        self.add_behaviour(self.SelectMateBehaviour(
+            deadline=time.time()+10,
+            providers=self.evol_agents)) 
+
+class MateParticipantBehaviour(ContractNetParticipantBehaviour):
+    def make_proposal(self, call):
+        logging.info('{0} making proposal...'.format(self.agent.name))
+        content = {}
+        content['fitness'] = self.agent.fitness
+        proposal = call.create_reply()
+        proposal.content = content
+        proposal.performative = ACLMessage.PROPOSE
+        return proposal
+
+    def execute_contract(self, conclusion):
+        logging.info('{0} executing contract...'.format(self.agent.name))
+        result = {}
+        result['fitness'] = self.agent.fitness
+        result['chromosome'] = self.agent.chromosome
+        return result
 
 class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
     def perform_request(self, content):
@@ -97,6 +136,7 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
             self.result_msg = None
             logging.info(
                 '{0} received reproduce message.'.format(self.agent.name))
+            self.agent.add_behaviour(MateInitiatorBehaviour())
         else:
             self.dieflag = False
 
@@ -138,4 +178,5 @@ class EvolAgent(Agent):
             RegisterServiceBehaviour(service=Service('EvolAgent')))
         behaviours.add_behaviour(EvolAgentHandleRequestBehaviour())
         self.add_behaviour(behaviours)
+        self.add_behaviour(MateParticipantBehaviour())
 
