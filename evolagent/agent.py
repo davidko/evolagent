@@ -68,7 +68,7 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             logging.info('{0} received proposals: {1}'.format(
                 self.agent.name,
                 proposals))
-            return max(proposals, key=lambda x: x['fitness'])
+            return max(proposals, key=lambda x: x.content['fitness'])
 
         def process_result(self, result=None):
             # result should be a Chromosome, if it is a result.
