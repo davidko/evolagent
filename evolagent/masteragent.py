@@ -9,6 +9,8 @@ from spyse.core.protocols.request import RequestInitiatorBehaviour
 import random
 import logging
 import sets
+import serpent
+import time
 
 import evolagent
 
@@ -74,8 +76,11 @@ class KillAgentTicker(TickerBehaviour):
                         store=agent,
                         request='die'))
                 # Need to remove entry for that entry in our list
+                del self.agent.fitness_datastore[agent]
                 
-            except:
+            except Exception as e:
+                print(type(e))
+                print(e)
                 pass
 
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
@@ -87,26 +92,26 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
 
     def handle_message(self, message):
         print('Master got fitness from agent: {0}'.format(message.content))
-        try:
-            content = serpent.loads(message.content)
-            self.agent.fitness_datastore[message.sender] = \
-                { 'timestamp':time.time(),
-                  'fitness':content['fitness'],
-                  'chromosome':content['chromosome'] }
-            logging.info('{0} reports fitness {1}'.format(message.sender,
-                content['fitness']))
-            # Create sorted list of fitnesses
-            self.agent.sorted_fitnesses = []
-            for (sender_id, item) in self.agent.fitness_datastore.items():
-                self.agent.sorted_fitnesses.append( {
-                    'agent_id':sender_id,
-                    'fitness':item['fitness'],
-                    'chromosome':item['chromosome'] } )
-            self.agent.sorted_fitnesses.sort(
-                key=lambda x: x['fitness'] )
+        #try:
+        content = serpent.loads(message.content)
+        self.agent.fitness_datastore[message.sender] = \
+            { 'timestamp':time.time(),
+              'fitness':content['fitness'],
+              'chromosome':content['chromosome'] }
+        logging.info('{0} reports fitness {1}'.format(message.sender,
+            content['fitness']))
+        # Create sorted list of fitnesses
+        self.agent.sorted_fitnesses = []
+        for (sender_id, item) in self.agent.fitness_datastore.items():
+            self.agent.sorted_fitnesses.append( {
+                'agent_id':sender_id,
+                'fitness':item['fitness'],
+                'chromosome':item['chromosome'] } )
+        self.agent.sorted_fitnesses.sort(
+            key=lambda x: x['fitness'] )
 
-        except: 
-            pass
+        #except: 
+        #    pass
         
 class MasterAgent(Agent):
     def setup(self, max_agent_population=20):
