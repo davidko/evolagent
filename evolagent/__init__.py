@@ -20,7 +20,10 @@ class Chromosome():
         self._fitness = None
 
     def __str__(self):
-        return '\n'.join(map(str, self.genes))
+        if self._genes is None:
+            return 'None'
+        else:
+            return '\n'.join(map(str, self.genes))
 
     def crossover(self, other):
         "Override this function..."

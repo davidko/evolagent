@@ -15,6 +15,7 @@ import random
 import serpent
 import logging
 import time
+import uuid
 
 import evolagent
 
@@ -75,7 +76,15 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             if result is None:
                 return
             # Create a new child here, TODO
-            logging.info('{0} Creating new child!'.format(self.agent.name))
+            logging.info('{0} Creating new child! {1}'.format(
+                self.agent.name,
+                result.content))
+            new_chro=self.agent.chromosome.crossover(result.content['chromosome'])
+            self.agent.mts.ams.start_agent(
+                EvolAgent, 
+                'gaitagent-{0}'.format(str(uuid.uuid4())),
+                ChromosomeClass=self.agent._chromosome_class,
+                chromosome=new_chro.genes)
 
     def __init__(self, *args, **kwargs):
         super(MateInitiatorBehaviour, self).__init__(*args, **kwargs)
