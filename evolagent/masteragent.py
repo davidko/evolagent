@@ -11,6 +11,7 @@ import logging
 import sets
 import serpent
 import time
+import numpy
 
 import evolagent
 
@@ -53,7 +54,6 @@ class GetDfServicesTicker(TickerBehaviour):
         self.__provider_results = provider_results
 
     def on_tick(self):
-        print('Polling df...')
         self.agent.add_behaviour(
             evolagent.behaviours.GetDfServicesBehaviour(store=AID('DF'),
                 request=self.service, provider_results=self.__provider_results))
@@ -63,14 +63,11 @@ class KillAgentTicker(TickerBehaviour):
         if self.agent.sorted_fitnesses is None or \
             len(self.agent.sorted_fitnesses) == 0:
                 return
-        print ('Current list of agents and fitnesses:')
-        for entry in self.agent.sorted_fitnesses:
-            print entry['fitness']
         # If there are too many agents, kill the weakest ones
         while len(self.agent.sorted_fitnesses) > self.agent.max_agent_population:
             try:
                 agent = self.agent.sorted_fitnesses.pop(0)['agent_id']
-                print('Sending kill command to {0}...'.format(agent))
+                logging.info('Sending kill command to {0}...'.format(agent))
                 self.agent.add_behaviour(
                     RequestInitiatorBehaviour(
                         store=agent,
@@ -85,13 +82,15 @@ class KillAgentTicker(TickerBehaviour):
 
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
     def __init__(self, **namedargs):
+        self.__num_children = 0
         template = MessageTemplate(performative=MessageTemplate.INFORM)
         template.protocol = 'report_fitness'
         super(ReceiveAgentFitnessBehaviour, self).__init__(
             template=template, **namedargs)
 
     def handle_message(self, message):
-        print('Master got fitness from agent: {0}'.format(message.content))
+        self.__num_children += 1
+        logging.info('Master got fitness from agent: {0}'.format(message.content))
         #try:
         content = serpent.loads(message.content)
         self.agent.fitness_datastore[message.sender] = \
@@ -109,6 +108,17 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
                 'chromosome':item['chromosome'] } )
         self.agent.sorted_fitnesses.sort(
             key=lambda x: x['fitness'] )
+        # Calculate mean fitness
+        mean = numpy.mean( 
+            map(lambda x: x['fitness'], self.agent.sorted_fitnesses))
+
+        logging.info('MASTER AGENT DATA: {0} {1} {2} {3} {4}'.format(
+            time.time(),
+            self.__num_children,
+            self.agent.sorted_fitnesses[0]['fitness'],
+            mean,
+            self.agent.sorted_fitnesses[-1]['fitness']))
+
 
         #except: 
         #    pass

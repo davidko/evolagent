@@ -148,7 +148,6 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
             self.agent.add_behaviour(MateInitiatorBehaviour())
         else:
             self.dieflag = False
-
         return True
 
     def send_result(self):

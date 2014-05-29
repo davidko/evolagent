@@ -39,6 +39,7 @@ class GaitChromosome(Chromosome):
         # First, save fitness to a temporary file
         f = tempfile.NamedTemporaryFile()
         f.write(str(self).encode('utf-8'))
+        f.flush()
         command = [ 'gait_fitness',  
                     '--disable-graphics',  
                     '--load-coefs', '{}'.format(f.name)]
@@ -73,10 +74,10 @@ class GaitChromosome(Chromosome):
 
 class MyApp(App):
     def run(self, args):
-        for i in range(5):
+        for i in range(200):
             self.start_agent(EvolAgent, 'gaitagent{0}'.format(i), 
                 ChromosomeClass=GaitChromosome)
-        self.start_agent(MasterAgent, 'MasterAgent', max_agent_population=30)
+        self.start_agent(MasterAgent, 'MasterAgent', max_agent_population=200)
 
 if __name__=="__main__":
     MyApp()
