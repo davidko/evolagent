@@ -21,7 +21,7 @@ import evolagent
 
 class ComputeFitnessBehaviour(Behaviour):
     def action(self):
-        self.agent.fitness = self.agent.chromosome.fitness_function()
+        self.agent.fitness = self.agent.chromosome.run_fitness_function()
         # Report our fitness to the master agent
         msg = ACLMessage(performative=ACLMessage.INFORM)
         content = { 'fitness':self.agent.fitness, 
@@ -33,7 +33,7 @@ class ComputeFitnessBehaviour(Behaviour):
         self.set_done()
 
 class MateInitiatorBehaviour(SequentialBehaviour):
-    MAX_PROPOSALS = 2
+    MAX_PROPOSALS = 10
     class TrimProvidersBehaviour(Behaviour):
         def setup(self, providers=[], max_providers = 10):
             self.__max_providers = max_providers
@@ -68,8 +68,12 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             # Just select the best one
             logging.info('{0} received proposals: {1}'.format(
                 self.agent.name,
-                proposals))
-            return max(proposals, key=lambda x: x.content['fitness'])
+                list(map(lambda x: x.sender, proposals))))
+            try:
+                return max(proposals, key=lambda x: x.content['fitness'])
+            except:
+                logging.exception('Could not select proposal.')
+                return None
 
         def process_result(self, result=None):
             # result should be a Chromosome, if it is a result.
@@ -106,7 +110,7 @@ class MateInitiatorBehaviour(SequentialBehaviour):
         # This is the Contract-Net protocol. 
         logging.info('Adding Select Mate Behaviour...')
         self.add_behaviour(self.SelectMateBehaviour(
-            deadline=time.time()+10,
+            deadline=time.time()+20,
             providers=self.evol_agents)) 
 
 class MateParticipantBehaviour(ContractNetParticipantBehaviour):

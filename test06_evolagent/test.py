@@ -22,20 +22,7 @@ logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()),
     level=logging.INFO)
 
 class GaitChromosome(Chromosome):
-    fitness_function_lock = threading.Condition()
-    fitness_function_num_instances = 0
-    fitness_function_max_instances = 4
-
     def fitness_function(self):
-        cls = self.__class__
-        cls.fitness_function_lock.acquire()
-        while cls.fitness_function_num_instances >= \
-            cls.fitness_function_max_instances:
-                cls.fitness_function_lock.wait()
-
-        cls.fitness_function_num_instances += 1
-        cls.fitness_function_lock.release()
-
         # First, save fitness to a temporary file
         f = tempfile.NamedTemporaryFile()
         f.write(str(self).encode('utf-8'))
@@ -53,10 +40,6 @@ class GaitChromosome(Chromosome):
         print(distance)
         self.__fitness = distance
         f.close()
-        cls.fitness_function_lock.acquire()
-        cls.fitness_function_num_instances -= 1
-        cls.fitness_function_lock.notify_all()
-        cls.fitness_function_lock.release()
         return distance
 
     def crossover(self, other):

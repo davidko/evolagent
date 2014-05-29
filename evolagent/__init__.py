@@ -9,12 +9,17 @@ from evolagent.masteragent import MasterAgent
 import evolagent.behaviours
 
 import random
+import threading
 
 class EvolError(Exception):
     def __init__(self, *args, **kwargs):
         super(EvolError, self).__init__(*args, **kwargs)
 
 class Chromosome():
+    fitness_function_lock = threading.Condition()
+    fitness_function_num_instances = 0
+    fitness_function_max_instances = 4
+
     def __init__(self, genes=None):
         self._genes = genes
         self._fitness = None
@@ -46,6 +51,25 @@ class Chromosome():
         self._genes = genes
 
     genes = property(__get_genes, __set_genes, None, "list of genes")
+
+    def run_fitness_function(self):
+        cls = self.__class__
+        cls.fitness_function_lock.acquire()
+        while cls.fitness_function_num_instances >= \
+            cls.fitness_function_max_instances:
+                cls.fitness_function_lock.wait()
+
+        cls.fitness_function_num_instances += 1
+        cls.fitness_function_lock.release()
+
+        fitness = self.fitness_function()
+
+        cls.fitness_function_lock.acquire()
+        cls.fitness_function_num_instances -= 1
+        cls.fitness_function_lock.notify_all()
+        cls.fitness_function_lock.release()
+
+        return fitness
 
     def fitness_function(self):
         """ Override this function to return the fitness of the chromosome."""

@@ -41,12 +41,17 @@ class ReproLottoTicker(TickerBehaviour):
                     store=agent,
                     request='reproduce'))
         """
-        agent = random.choice(self.__population)
-        logging.info('Master send Repro message to {0}'.format(agent))
-        self.agent.add_behaviour(
-            RequestInitiatorBehaviour(
-                store=agent,
-                request='reproduce'))
+        evolagent.Chromosome.fitness_function_lock.acquire()
+        sample_n = evolagent.Chromosome.fitness_function_max_instances - \
+            evolagent.Chromosome.fitness_function_num_instances
+        evolagent.Chromosome.fitness_function_lock.release()
+        agents = random.sample(self.__population, sample_n)
+        for agent in agents:
+            logging.info('Master send Repro message to {0}'.format(agent))
+            self.agent.add_behaviour(
+                RequestInitiatorBehaviour(
+                    store=agent,
+                    request='reproduce'))
 
 class GetDfServicesTicker(TickerBehaviour):
     def setup(self, service, provider_results = None):
@@ -76,8 +81,7 @@ class KillAgentTicker(TickerBehaviour):
                 del self.agent.fitness_datastore[agent]
                 
             except Exception as e:
-                print(type(e))
-                print(e)
+                logging.exception('Could not kill agent(s).')
                 pass
 
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
