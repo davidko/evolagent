@@ -14,7 +14,6 @@ class GetDfServicesBehaviour(QueryInitiatorBehaviour):
         pass
 
     def handle_inform(self, content):
-        logging.info('{0} Received: {1} from DF'.format(self.agent.name, content))
         self.agent.peer_agents = content
         self.__provider_results[:] = []
         self.__provider_results += content

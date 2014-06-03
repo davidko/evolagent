@@ -21,6 +21,7 @@ import evolagent
 
 class ComputeFitnessBehaviour(Behaviour):
     def action(self):
+        logging.info('{0} Begin compute fitness.'.format(self.agent.name))
         self.agent.fitness = self.agent.chromosome.run_fitness_function()
         # Report our fitness to the master agent
         msg = ACLMessage(performative=ACLMessage.INFORM)
@@ -30,10 +31,13 @@ class ComputeFitnessBehaviour(Behaviour):
         msg.receivers = [ AID('MasterAgent') ]
         msg.protocol = 'report_fitness'
         self.agent.send_message(msg)
+        logging.info(
+            '{0} Done computing fitness, sent report to Master'.format(
+                self.agent.name))
         self.set_done()
 
 class MateInitiatorBehaviour(SequentialBehaviour):
-    MAX_PROPOSALS = 10
+    MAX_PROPOSALS = 3
     class TrimProvidersBehaviour(Behaviour):
         def setup(self, providers=[], max_providers = 10):
             self.__max_providers = max_providers
@@ -51,7 +55,6 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             
     class SelectMateBehaviour(ContractNetInitiatorBehaviour):
         def __init__(self, *args, **kwargs):
-            logging.info('Select Mate Behaviour Init.')
             datastore = {}
             datastore['call'] = 'mate'
             datastore['providers'] = kwargs['providers']
@@ -108,14 +111,15 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             max_providers = self.MAX_PROPOSALS))
         # Next, choose a remote agent and get its fitness/chromosome
         # This is the Contract-Net protocol. 
-        logging.info('Adding Select Mate Behaviour...')
         self.add_behaviour(self.SelectMateBehaviour(
             deadline=time.time()+20,
             providers=self.evol_agents)) 
 
 class MateParticipantBehaviour(ContractNetParticipantBehaviour):
     def make_proposal(self, call):
-        logging.info('{0} making proposal...'.format(self.agent.name))
+        logging.info(
+            '{0} making proposal to {1}'.format(
+                self.agent.name, call.sender))
         content = {}
         content['fitness'] = self.agent.fitness
         proposal = call.create_reply()
@@ -181,14 +185,14 @@ class EvolAgent(Agent):
             chromosome = [random.randint(0, 255) for _ in range(120)]
        
         self._chromosome_class = ChromosomeClass
-        self.chromosome = ChromosomeClass(chromosome)
+        self.chromosome = ChromosomeClass(chromosome, agent=self)
         if not isinstance(self.chromosome, evolagent.Chromosome):
             raise evolagent.EvolError('ChromosomeClass must subclass Chromosome.')
         behaviours = SequentialBehaviour()
         behaviours.add_behaviour(ComputeFitnessBehaviour())
         behaviours.add_behaviour(
             RegisterServiceBehaviour(service=Service('EvolAgent')))
-        behaviours.add_behaviour(EvolAgentHandleRequestBehaviour())
         self.add_behaviour(behaviours)
+        self.add_behaviour(EvolAgentHandleRequestBehaviour())
         self.add_behaviour(MateParticipantBehaviour())
 

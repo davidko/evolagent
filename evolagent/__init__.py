@@ -10,6 +10,7 @@ import evolagent.behaviours
 
 import random
 import threading
+import logging
 
 class EvolError(Exception):
     def __init__(self, *args, **kwargs):
@@ -20,9 +21,10 @@ class Chromosome():
     fitness_function_num_instances = 0
     fitness_function_max_instances = 4
 
-    def __init__(self, genes=None):
+    def __init__(self, genes=None, agent=None):
         self._genes = genes
         self._fitness = None
+        #self.agent = agent
 
     def __str__(self):
         if self._genes is None:
@@ -55,6 +57,7 @@ class Chromosome():
     def run_fitness_function(self):
         cls = self.__class__
         cls.fitness_function_lock.acquire()
+        #logging.info("{0} Running fitness function...".format(self.agent.name))
         while cls.fitness_function_num_instances >= \
             cls.fitness_function_max_instances:
                 cls.fitness_function_lock.wait()
@@ -68,6 +71,7 @@ class Chromosome():
         cls.fitness_function_num_instances -= 1
         cls.fitness_function_lock.notify_all()
         cls.fitness_function_lock.release()
+        #logging.info("{0} Finished fitness function.".format(self.agent.name))
 
         return fitness
 
