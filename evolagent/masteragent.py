@@ -116,16 +116,32 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
         mean = numpy.mean( 
             map(lambda x: x['fitness'], self.agent.sorted_fitnesses))
 
-        logging.info('MASTER AGENT DATA: {0} {1} {2} {3} {4}'.format(
+        logging.info('MASTER AGENT DATA: {0} {1} {2} {3} {4} {5}'.format(
             time.time(),
             self.__num_children,
             self.agent.sorted_fitnesses[0]['fitness'],
             mean,
-            self.agent.sorted_fitnesses[-1]['fitness']))
-
+            self.agent.sorted_fitnesses[-1]['fitness'],
+            self.population_diversity(self.agent.sorted_fitnesses)))
 
         #except: 
         #    pass
+
+
+    def population_diversity(self, population):
+        sums = [0 for _ in range(len(population[0]['chromosome']['_genes']))]
+        for p in population:
+            c = p['chromosome']['_genes']
+            sums = [x+y for x,y in zip(sums, c)]
+        centroids = map(lambda x: float(x) / len(population), sums)
+        inertia = 0
+        for i in range(len(sums)):
+            s = 0
+            for j in range(len(population)):
+                s += (population[j]['chromosome']['_genes'][i] - \
+                      centroids[i])**2
+            inertia += s
+        return inertia
         
 class MasterAgent(Agent):
     def setup(self, max_agent_population=20):
