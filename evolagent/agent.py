@@ -154,6 +154,10 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
             logging.info(
                 '{0} received reproduce message.'.format(self.agent.name))
             self.agent.add_behaviour(MateInitiatorBehaviour())
+        elif content == 'migrate':
+            self.result_msg = None
+            logging.info(
+                '{0} received migrate message.'.format(self.agent.name))
         else:
             self.dieflag = False
         return True
