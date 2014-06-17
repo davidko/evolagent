@@ -112,7 +112,7 @@ class MateInitiatorBehaviour(SequentialBehaviour):
         # Next, choose a remote agent and get its fitness/chromosome
         # This is the Contract-Net protocol. 
         self.add_behaviour(self.SelectMateBehaviour(
-            deadline=time.time()+20,
+            deadline=time.time()+10,
             providers=self.evol_agents)) 
 
 class MateParticipantBehaviour(ContractNetParticipantBehaviour):
@@ -177,6 +177,7 @@ class UnregisterServiceBehaviour(SendBehaviour):
 
 class DieBehaviour(Behaviour):
     def action(self):
+        logging.info('{0} terminating...'.format(self.agent.name))
         self.agent.die()
 
 class EvolAgent(Agent):

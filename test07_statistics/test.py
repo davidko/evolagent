@@ -5,7 +5,7 @@ import pylab
 import random
 
 N = 200
-m = 10
+m = 1
 iterations = 50000
 
 def test3(i, N , m):

@@ -57,10 +57,13 @@ class GaitChromosome(Chromosome):
 
 class MyApp(App):
     def run(self, args):
-        for i in range(10):
+        for i in range(200):
             self.start_agent(EvolAgent, 'gaitagent{0}'.format(i), 
                 ChromosomeClass=GaitChromosome)
-        self.start_agent(MasterAgent, 'MasterAgent', max_agent_population=10)
+        self.start_agent(MasterAgent, 
+                         'MasterAgent', 
+                         max_agent_population=200,
+                         ChromosomeClass = GaitChromosome)
 
 if __name__=="__main__":
     MyApp()

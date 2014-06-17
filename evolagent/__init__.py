@@ -57,12 +57,14 @@ class Chromosome():
     def run_fitness_function(self):
         cls = self.__class__
         cls.fitness_function_lock.acquire()
-        #logging.info("{0} Running fitness function...".format(self.agent.name))
+        logging.info('Lock.')
         while cls.fitness_function_num_instances >= \
             cls.fitness_function_max_instances:
                 cls.fitness_function_lock.wait()
 
         cls.fitness_function_num_instances += 1
+        logging.info("Running fitness function...  {0}".format(
+            cls.fitness_function_num_instances))
         cls.fitness_function_lock.release()
 
         fitness = self.fitness_function()
@@ -70,6 +72,7 @@ class Chromosome():
         cls.fitness_function_lock.acquire()
         cls.fitness_function_num_instances -= 1
         cls.fitness_function_lock.notify_all()
+        logging.info('Unlock.')
         cls.fitness_function_lock.release()
         #logging.info("{0} Finished fitness function.".format(self.agent.name))
 

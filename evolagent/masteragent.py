@@ -41,10 +41,15 @@ class ReproLottoTicker(TickerBehaviour):
                     store=agent,
                     request='reproduce'))
         """
-        evolagent.Chromosome.fitness_function_lock.acquire()
-        sample_n = evolagent.Chromosome.fitness_function_max_instances - \
-            evolagent.Chromosome.fitness_function_num_instances
-        evolagent.Chromosome.fitness_function_lock.release()
+        logging.info('Master agent trying to acquire fitness lock...')
+        self.agent.chromosome_cls.fitness_function_lock.acquire()
+        logging.info('Master agent acquired fitness lock {0}.'.format(
+            self.agent.chromosome_cls.fitness_function_num_instances
+            ))
+        sample_n = self.agent.chromosome_cls.fitness_function_max_instances - \
+            self.agent.chromosome_cls.fitness_function_num_instances
+        self.agent.chromosome_cls.fitness_function_lock.release()
+        logging.info('Master agent released fitness lock.')
         agents = random.sample(self.__population, sample_n)
         for agent in agents:
             logging.info('Master send Repro message to {0}'.format(agent))
@@ -81,7 +86,7 @@ class KillAgentTicker(TickerBehaviour):
                 del self.agent.fitness_datastore[agent]
                 
             except Exception as e:
-                logging.exception('Could not kill agent(s).')
+                logging.exception('ERROR: Could not kill agent(s).')
                 pass
 
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
@@ -144,7 +149,8 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
         return inertia
         
 class MasterAgent(Agent):
-    def setup(self, max_agent_population=20):
+    def setup(self, max_agent_population=20, ChromosomeClass=None):
+        self.chromosome_cls = ChromosomeClass
         self.max_agent_population = max_agent_population
         self.datastore = {}
         self.df_datastore = {}
