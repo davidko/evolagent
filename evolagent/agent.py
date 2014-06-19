@@ -157,7 +157,10 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
         elif content == 'migrate':
             self.result_msg = None
             logging.info(
-                '{0} received migrate message.'.format(self.agent.name))
+                '{0} received migrate message. Remote agencies: {1}'.format(
+                    self.agent.name,
+                    self.agent.mts.ams.find_others()))
+
         else:
             self.dieflag = False
         return True
