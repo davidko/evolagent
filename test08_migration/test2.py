@@ -32,13 +32,6 @@ class MigrateAgent(spyse.core.agents.agent.Agent):
         self.initialized = False
         print('In execute()')
 
-class MyApp(App):
-    def run(self, args):
-        self.start_agent(MigrateAgent)
-
 if __name__ == "__main__":
-    (nsuri, nsdaemon, bcserver) = Pyro4.naming.startNS()
-    thread = threading.Thread(target=nsdaemon.requestLoop)
-    thread.start()
+    App(port=9001, ns='local')
 
-    MyApp(port=9000, ns='local')
