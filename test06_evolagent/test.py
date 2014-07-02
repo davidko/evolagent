@@ -57,12 +57,14 @@ class GaitChromosome(Chromosome):
 
 class MyApp(App):
     def run(self, args):
-        for i in range(200):
+        population = 50
+        logging.info('Starting with population of {0}...'.format(population))
+        for i in range(population):
             self.start_agent(EvolAgent, 'gaitagent{0}'.format(i), 
                 ChromosomeClass=GaitChromosome)
         self.start_agent(MasterAgent, 
                          'MasterAgent', 
-                         max_agent_population=200,
+                         max_agent_population=population,
                          ChromosomeClass = GaitChromosome)
 
 if __name__=="__main__":

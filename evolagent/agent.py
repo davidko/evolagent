@@ -160,6 +160,7 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
                 '{0} received migrate message. Remote agencies: {1}'.format(
                     self.agent.name,
                     self.agent.mts.ams.find_others()))
+            self.agent.migrate()
 
         else:
             self.dieflag = False
@@ -187,6 +188,18 @@ class DieBehaviour(Behaviour):
         logging.info('{0} terminating...'.format(self.agent.name))
         self.agent.die()
 
+class MigrateBehaviour(Behaviour):
+    def action(self):
+        # Send an unregister message to the Master
+        msg = ACLMessage(performative=ACLMessage.INFORM)
+        msg.content = serpent.dumps(self.agent.aid)
+        msg.receivers = [ AID('MasterAgent') ]
+        msg.protocol = 'unregister'
+        self.agent.send_message(msg)
+        remote_ams = self.agent.choose_remote_ams()
+        self.agent.move(remote_ams)
+        self.set_done()
+
 class EvolAgent(Agent):
     def setup(self, ChromosomeClass=None, chromosome=None, fitness=None):
         if chromosome is None:
@@ -203,4 +216,9 @@ class EvolAgent(Agent):
         self.add_behaviour(behaviours)
         self.add_behaviour(EvolAgentHandleRequestBehaviour())
         self.add_behaviour(MateParticipantBehaviour())
+
+    def migrate(self):
+        seq = SequentialBehaviour()
+        seq.add_behaviour(UnregisterServiceBehaviour(service=Service('EvolAgent')))
+        seq.add_behaviour(MigrateBehaviour())
 

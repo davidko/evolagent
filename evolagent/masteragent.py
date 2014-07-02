@@ -89,6 +89,42 @@ class KillAgentTicker(TickerBehaviour):
                 logging.exception('ERROR: Could not kill agent(s).')
                 pass
 
+class MoveAgentTicker(TickerBehaviour):
+    def on_tick(self):
+        if self.agent.sorted_fitnesses is None or \
+            len(self.agent.sorted_fitnesses) == 0:
+                return
+        try:
+            agent = random.choice(self.agent.sorted_fitnesses)
+            logging.info('Sending migrate command to {0}...'.format(agent))
+            self.agent.add_behaviour(
+                RequestInitiatorBehaviour(
+                    store=agent,
+                    request='migrate'))
+            # Need to remove entry for that entry in our list
+            # del self.agent.fitness_datastore[agent]
+            
+        except Exception as e:
+            logging.exception('ERROR: Could not migrate agent(s). {0}'.format(e))
+            pass
+
+class ReceiveAgentUnregisterBehaviour(ReceiveBehaviour):
+    def __init__(self, **namedargs):
+        template = MessageTemplate(performative=MessageTemplate.INFORM)
+        template.protocol = 'unregister'
+        super(ReceiveAgentFitnessBehaviour, self).__init__(
+            template=template, **namedargs)
+
+    def handle_message(self, message):
+        aid = serpent.loads(message.content)
+        try:
+            del self.agent.fitness_datastore[aid]
+        except Exception as e:
+            logging.warning(
+                'Master could not remove agent from datastore. {0}',
+                e)
+
+
 class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
     def __init__(self, **namedargs):
         self.__num_children = 0
@@ -121,13 +157,14 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
         mean = numpy.mean( 
             map(lambda x: x['fitness'], self.agent.sorted_fitnesses))
 
-        logging.info('MASTER AGENT DATA: {0} {1} {2} {3} {4} {5}'.format(
+        logging.info('MASTER AGENT DATA: {0} {1} {2} {3} {4} {5} {6}'.format(
             time.time(),
             self.__num_children,
             self.agent.sorted_fitnesses[0]['fitness'],
             mean,
             self.agent.sorted_fitnesses[-1]['fitness'],
-            self.population_diversity(self.agent.sorted_fitnesses)))
+            self.population_diversity(self.agent.sorted_fitnesses),
+            self.agent.mts.ams.population))
 
         #except: 
         #    pass
