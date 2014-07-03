@@ -19,10 +19,8 @@ import uuid
 
 import evolagent
 
-class ComputeFitnessBehaviour(Behaviour):
+class ReportFitnessBehaviour(Behaviour):
     def action(self):
-        logging.info('{0} Begin compute fitness.'.format(self.agent.name))
-        self.agent.fitness = self.agent.chromosome.run_fitness_function()
         # Report our fitness to the master agent
         msg = ACLMessage(performative=ACLMessage.INFORM)
         content = { 'fitness':self.agent.fitness, 
@@ -31,6 +29,12 @@ class ComputeFitnessBehaviour(Behaviour):
         msg.receivers = [ AID('MasterAgent') ]
         msg.protocol = 'report_fitness'
         self.agent.send_message(msg)
+        self.set_done()
+
+class ComputeFitnessBehaviour(Behaviour):
+    def action(self):
+        logging.info('{0} Begin compute fitness.'.format(self.agent.name))
+        self.agent.fitness = self.agent.chromosome.run_fitness_function()
         logging.info(
             '{0} Done computing fitness, sent report to Master'.format(
                 self.agent.name))
@@ -197,6 +201,7 @@ class MigrateBehaviour(Behaviour):
         msg.protocol = 'unregister'
         self.agent.send_message(msg)
         remote_ams = self.agent.choose_remote_ams()
+        logging.info('{0} emigrating...'.format(self.agent.name))
         self.agent.move(remote_ams)
         self.set_done()
 
@@ -207,10 +212,11 @@ class EvolAgent(Agent):
        
         self._chromosome_class = ChromosomeClass
         self.chromosome = ChromosomeClass(chromosome, agent=self)
-        if not isinstance(self.chromosome, evolagent.Chromosome):
-            raise evolagent.EvolError('ChromosomeClass must subclass Chromosome.')
+        #if not isinstance(self.chromosome, evolagent.Chromosome):
+        #    raise evolagent.EvolError('ChromosomeClass must subclass Chromosome.')
         behaviours = SequentialBehaviour()
         behaviours.add_behaviour(ComputeFitnessBehaviour())
+        behaviours.add_behaviour(ReportFitnessBehaviour())
         behaviours.add_behaviour(
             RegisterServiceBehaviour(service=Service('EvolAgent')))
         self.add_behaviour(behaviours)
@@ -221,4 +227,19 @@ class EvolAgent(Agent):
         seq = SequentialBehaviour()
         seq.add_behaviour(UnregisterServiceBehaviour(service=Service('EvolAgent')))
         seq.add_behaviour(MigrateBehaviour())
+        self.add_behaviour(seq)
+
+    def execute(self):
+        """ This method is executed after an agent migration. """
+        logging.info('{0} immigrated here.'.format(self.agent.name))
+        behaviours = SequentialBehaviour()
+        behaviours.add_behaviour(ReportFitnessBehaviour())
+        behaviours.add_behaviour(
+            RegisterServiceBehaviour(service=Service('EvolAgent')))
+        self.add_behaviour(behaviours)
+
+    def choose_remote_ams(self):
+        amss = self.mts.ams.find_others()
+        ams = random.choice(list(amss))
+        return ams
 
