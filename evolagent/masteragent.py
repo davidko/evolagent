@@ -14,6 +14,7 @@ import time
 import numpy
 
 import evolagent
+from evolagent.agent import EvolAgent
 
 class ReproLottoTicker(TickerBehaviour):
     def setup(self, population=None, wait_ticks=3):
@@ -42,13 +43,13 @@ class ReproLottoTicker(TickerBehaviour):
                     request='reproduce'))
         """
         logging.info('Master agent trying to acquire fitness lock...')
-        self.agent.chromosome_cls.fitness_function_lock.acquire()
+        EvolAgent.fitness_function_lock.acquire()
         logging.info('Master agent acquired fitness lock {0}.'.format(
-            self.agent.chromosome_cls.fitness_function_num_instances
+            EvolAgent.fitness_function_num_instances
             ))
-        sample_n = self.agent.chromosome_cls.fitness_function_max_instances - \
-            self.agent.chromosome_cls.fitness_function_num_instances
-        self.agent.chromosome_cls.fitness_function_lock.release()
+        sample_n = EvolAgent.fitness_function_max_instances - \
+            EvolAgent.fitness_function_num_instances
+        EvolAgent.fitness_function_lock.release()
         logging.info('Master agent released fitness lock.')
         agents = random.sample(self.__population, sample_n)
         for agent in agents:
@@ -171,16 +172,16 @@ class ReceiveAgentFitnessBehaviour(ReceiveBehaviour):
 
 
     def population_diversity(self, population):
-        sums = [0 for _ in range(len(population[0]['chromosome']['_genes']))]
+        sums = [0 for _ in range(len(population[0]['chromosome']))]
         for p in population:
-            c = p['chromosome']['_genes']
+            c = p['chromosome']
             sums = [x+y for x,y in zip(sums, c)]
         centroids = map(lambda x: float(x) / len(population), sums)
         inertia = 0
         for i in range(len(sums)):
             s = 0
             for j in range(len(population)):
-                s += (population[j]['chromosome']['_genes'][i] - \
+                s += (population[j]['chromosome'][i] - \
                       centroids[i])**2
             inertia += s
         return inertia

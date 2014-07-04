@@ -16,6 +16,7 @@ import serpent
 import logging
 import time
 import uuid
+import threading
 
 import evolagent
 
@@ -24,7 +25,7 @@ class ReportFitnessBehaviour(Behaviour):
         # Report our fitness to the master agent
         msg = ACLMessage(performative=ACLMessage.INFORM)
         content = { 'fitness':self.agent.fitness, 
-                    'chromosome':self.agent.chromosome}
+                    'chromosome':self.agent.genes}
         msg.content = serpent.dumps(content)
         msg.receivers = [ AID('MasterAgent') ]
         msg.protocol = 'report_fitness'
@@ -34,7 +35,7 @@ class ReportFitnessBehaviour(Behaviour):
 class ComputeFitnessBehaviour(Behaviour):
     def action(self):
         logging.info('{0} Begin compute fitness.'.format(self.agent.name))
-        self.agent.fitness = self.agent.chromosome.run_fitness_function()
+        self.agent.fitness = self.agent.run_fitness_function()
         logging.info(
             '{0} Done computing fitness, sent report to Master'.format(
                 self.agent.name))
@@ -90,12 +91,16 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             logging.info('{0} Creating new child! {1}'.format(
                 self.agent.name,
                 result.content))
-            new_chro=self.agent.chromosome.crossover(result.content['chromosome'])
+            new_chro=self.agent.crossover(result.content['chromosome'])
+            self.agent.spawn_new_agent(
+                'gaitagent-{0}'.format(str(uuid.uuid4())),
+                new_chro)
+            """
             self.agent.mts.ams.start_agent(
                 EvolAgent, 
                 'gaitagent-{0}'.format(str(uuid.uuid4())),
-                ChromosomeClass=self.agent._chromosome_class,
-                chromosome=new_chro.genes)
+                chromosome=new_chro)
+            """
 
     def __init__(self, *args, **kwargs):
         super(MateInitiatorBehaviour, self).__init__(*args, **kwargs)
@@ -135,7 +140,7 @@ class MateParticipantBehaviour(ContractNetParticipantBehaviour):
         logging.info('{0} executing contract...'.format(self.agent.name))
         result = {}
         result['fitness'] = self.agent.fitness
-        result['chromosome'] = self.agent.chromosome
+        result['chromosome'] = self.agent.genes
         return result
 
 class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
@@ -152,7 +157,7 @@ class EvolAgentHandleRequestBehaviour(RequestParticipantBehaviour):
         elif content == 'fitness':
             self.result_msg = self.agent.fitness
         elif content == 'genes':
-            self.result_msg = self.agent.chromosome
+            self.result_msg = self.agent.genes
         elif content == 'reproduce':
             self.result_msg = None
             logging.info(
@@ -206,14 +211,14 @@ class MigrateBehaviour(Behaviour):
         self.set_done()
 
 class EvolAgent(Agent):
-    def setup(self, ChromosomeClass=None, chromosome=None, fitness=None):
+    fitness_function_lock = threading.Condition()
+    fitness_function_num_instances = 0
+    fitness_function_max_instances = 4
+    def setup(self, chromosome=None, fitness=None):
         if chromosome is None:
             chromosome = [random.randint(0, 255) for _ in range(120)]
        
-        self._chromosome_class = ChromosomeClass
-        self.chromosome = ChromosomeClass(chromosome, agent=self)
-        #if not isinstance(self.chromosome, evolagent.Chromosome):
-        #    raise evolagent.EvolError('ChromosomeClass must subclass Chromosome.')
+        self.genes = chromosome
         behaviours = SequentialBehaviour()
         behaviours.add_behaviour(ComputeFitnessBehaviour())
         behaviours.add_behaviour(ReportFitnessBehaviour())
@@ -242,4 +247,48 @@ class EvolAgent(Agent):
         amss = self.mts.ams.find_others()
         ams = random.choice(list(amss))
         return ams
+
+    def __get_genes(self):
+        return self._genes
+
+    def __set_genes(self, genes):
+        self._genes = genes
+
+    genes = property(__get_genes, __set_genes, None, "list of genes")
+    
+    def run_fitness_function(self):
+        EvolAgent.fitness_function_lock.acquire()
+        logging.info('Lock.')
+        while EvolAgent.fitness_function_num_instances >= \
+            EvolAgent.fitness_function_max_instances:
+                EvolAgent.fitness_function_lock.wait()
+
+        EvolAgent.fitness_function_num_instances += 1
+        logging.info("Running fitness function...  {0}".format(
+            EvolAgent.fitness_function_num_instances))
+        EvolAgent.fitness_function_lock.release()
+
+        fitness = self.fitness_function()
+
+        EvolAgent.fitness_function_lock.acquire()
+        EvolAgent.fitness_function_num_instances -= 1
+        EvolAgent.fitness_function_lock.notify_all()
+        logging.info('Unlock.')
+        EvolAgent.fitness_function_lock.release()
+        self.fitness = fitness
+        return fitness
+
+    def fitness_function(self):
+        """ Override this function to return the fitness of the chromosome."""
+        raise Exception('fitness_function() must be overridden.')
+
+    def crossover(self, other):
+        """ Override this function to return the perform a crossover with
+        another chromosome. """
+        raise Exception('crossover() must be overridden.')
+
+    def spawn_new_agent(self, name, chromosome):
+        """ Override this function to start a new agent with the
+        given chromosome. """
+        raise Exception('spawn_new_agent() must be overridden.')
 
