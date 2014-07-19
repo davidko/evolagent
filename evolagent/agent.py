@@ -41,6 +41,51 @@ class ComputeFitnessBehaviour(Behaviour):
                 self.agent.name))
         self.set_done()
 
+class SelectMateBehaviour(ContractNetInitiatorBehaviour):
+    def __init__(self, *args, **kwargs):
+        datastore = {}
+        datastore['call'] = 'mate'
+        datastore['providers'] = kwargs['providers']
+        ContractNetInitiatorBehaviour.__init__(
+            self,
+            *args, 
+            datastore=datastore,
+            **kwargs)
+
+    def setup(self, providers=None):
+        pass
+
+    def select_proposal(self, proposals):
+        # Just select the best one
+        logging.info('{0} received proposals: {1}'.format(
+            self.agent.name,
+            list(map(lambda x: x.sender, proposals))))
+        try:
+            return max(proposals, key=lambda x: x.content['fitness'])
+        except:
+
+            logging.exception('Could not select proposal.')
+            return None
+
+    def process_result(self, result=None):
+        # result should be a Chromosome, if it is a result.
+        if result is None:
+            return
+        # Create a new child here, TODO
+        logging.info('{0} Creating new child! {1}'.format(
+            self.agent.name,
+            result.content))
+        new_chro=self.agent.crossover(result.content['chromosome'])
+        self.agent.spawn_new_agent(
+            'gaitagent-{0}'.format(str(uuid.uuid4())),
+            new_chro)
+        """
+        self.agent.mts.ams.start_agent(
+            EvolAgent, 
+            'gaitagent-{0}'.format(str(uuid.uuid4())),
+            chromosome=new_chro)
+        """
+
 class MateInitiatorBehaviour(SequentialBehaviour):
     MAX_PROPOSALS = 3
     class TrimProvidersBehaviour(Behaviour):
@@ -58,50 +103,6 @@ class MateInitiatorBehaviour(SequentialBehaviour):
                     self.__providers))
             self.set_done()
             
-    class SelectMateBehaviour(ContractNetInitiatorBehaviour):
-        def __init__(self, *args, **kwargs):
-            datastore = {}
-            datastore['call'] = 'mate'
-            datastore['providers'] = kwargs['providers']
-            ContractNetInitiatorBehaviour.__init__(
-                self,
-                *args, 
-                datastore=datastore,
-                **kwargs)
-
-        def setup(self, providers=None):
-            pass
-
-        def select_proposal(self, proposals):
-            # Just select the best one
-            logging.info('{0} received proposals: {1}'.format(
-                self.agent.name,
-                list(map(lambda x: x.sender, proposals))))
-            try:
-                return max(proposals, key=lambda x: x.content['fitness'])
-            except:
-                logging.exception('Could not select proposal.')
-                return None
-
-        def process_result(self, result=None):
-            # result should be a Chromosome, if it is a result.
-            if result is None:
-                return
-            # Create a new child here, TODO
-            logging.info('{0} Creating new child! {1}'.format(
-                self.agent.name,
-                result.content))
-            new_chro=self.agent.crossover(result.content['chromosome'])
-            self.agent.spawn_new_agent(
-                'gaitagent-{0}'.format(str(uuid.uuid4())),
-                new_chro)
-            """
-            self.agent.mts.ams.start_agent(
-                EvolAgent, 
-                'gaitagent-{0}'.format(str(uuid.uuid4())),
-                chromosome=new_chro)
-            """
-
     def __init__(self, *args, **kwargs):
         super(MateInitiatorBehaviour, self).__init__(*args, **kwargs)
         # First, get df services
@@ -120,7 +121,7 @@ class MateInitiatorBehaviour(SequentialBehaviour):
             max_providers = self.MAX_PROPOSALS))
         # Next, choose a remote agent and get its fitness/chromosome
         # This is the Contract-Net protocol. 
-        self.add_behaviour(self.SelectMateBehaviour(
+        self.add_behaviour(SelectMateBehaviour(
             deadline=time.time()+10,
             providers=self.evol_agents)) 
 

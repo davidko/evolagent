@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+
+import random
+import tempfile
+import subprocess
+import math
+import threading
+
+from spyse.app.app import App
+import spyse.core.behaviours.behaviours as behaviours
+from spyse.core.protocols.request import RequestInitiatorBehaviour
+from evolagent import Chromosome, EvolAgent, MasterAgent
+
+from gaitagent import GaitAgent, GaitMasterAgent
+
+import datetime
+import time
+import serpent
+
+import logging
+
+import Pyro4
+Pyro4.config.SERIALIZER='pickle'
+Pyro4.config.SERIALIZERS_ACCEPTED=['json', 'marshal', 'serpent', 'pickle']
+Pyro4.config.SOCK_REUSE = True
+
+def timestamp():
+    return datetime.datetime.now().strftime('%Y%m%d-%H%M.%S')
+
+logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()),
+    level=logging.INFO)
+
+class MyApp(App):
+    def run(self, args):
+        population = 20
+        for i in range(population):
+            self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
+        self.start_agent(GaitMasterAgent, 
+                         'MasterAgent', 
+                         max_agent_population=population)
+
+if __name__ == "__main__":
+    MyApp(port=9001, ns='local')

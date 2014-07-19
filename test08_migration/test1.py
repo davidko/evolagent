@@ -3,13 +3,28 @@
 import spyse
 from spyse.app.app import App
 import spyse.core.behaviours.behaviours as behaviours
+import spyse.core.behaviours.composite as cbehaviours
+from spyse.core.platform.df import Service
 import random
 import threading
+import datetime
+import evolagent
 
 import Pyro4
 Pyro4.config.SERIALIZER='pickle'
 Pyro4.config.SERIALIZERS_ACCEPTED=['json', 'marshal', 'serpent', 'pickle']
 Pyro4.config.SOCK_REUSE = True
+import logging
+import gaitagent
+
+def timestamp():
+    return datetime.datetime.now().strftime('%Y%m%d-%H%M.%S')
+
+logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()),
+    level=logging.INFO)
+
+def bloob(arg):
+    pass
 
 class RandomMigrateBehaviour(behaviours.TickerBehaviour):
     def on_tick(self):
@@ -23,18 +38,36 @@ class RandomMigrateBehaviour(behaviours.TickerBehaviour):
         print('Moving to {0}...'.format(ams))
         self.agent.move(ams)
 
-class MigrateAgent(spyse.core.agents.agent.Agent):
+class MigrateAgent(gaitagent.GaitAgent):
+    mycond = threading.Condition()
     def setup(self):
-        self.add_behaviour(RandomMigrateBehaviour())
+        chromosome = [random.randint(0, 255) for _ in range(120)]
+       
+        self.genes = chromosome
+        seq = cbehaviours.SequentialBehaviour()
+        seq.add_behaviour(evolagent.agent.ComputeFitnessBehaviour())
+        seq.add_behaviour(evolagent.agent.ReportFitnessBehaviour())
+        seq.add_behaviour(
+            evolagent.agent.RegisterServiceBehaviour(service=Service('EvolAgent')))
+        self.add_behaviour(evolagent.agent.EvolAgentHandleRequestBehaviour())
+        #self.add_behaviour(evolagent.agent.MateParticipantBehaviour())
+        seq.add_behaviour(RandomMigrateBehaviour())
+        self.add_behaviour(seq)
         self.initialized = False
+        self.blah = MigrateAgent
 
     def execute(self):
         self.initialized = False
+        logging.info('bloob')
         print('In execute()')
 
 class MyApp(App):
     def run(self, args):
-        self.start_agent(MigrateAgent)
+        population = 10
+        for _ in range(population):
+            self.start_agent(MigrateAgent)
+        self.start_agent(gaitagent.GaitMasterAgent, "MasterAgent",
+            max_agent_population=population)
 
 if __name__ == "__main__":
     (nsuri, nsdaemon, bcserver) = Pyro4.naming.startNS()
