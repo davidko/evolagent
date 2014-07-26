@@ -63,7 +63,7 @@ class MigrateAgent(gaitagent.GaitAgent):
 
 class MyApp(App):
     def run(self, args):
-        population = 10
+        population = 1
         for _ in range(population):
             self.start_agent(MigrateAgent)
         self.start_agent(gaitagent.GaitMasterAgent, "MasterAgent",

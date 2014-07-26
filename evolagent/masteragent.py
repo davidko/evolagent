@@ -100,7 +100,7 @@ class MoveAgentTicker(TickerBehaviour):
             logging.info('Sending migrate command to {0}...'.format(agent))
             self.agent.add_behaviour(
                 RequestInitiatorBehaviour(
-                    store=agent,
+                    store=agent['agent_id'],
                     request='migrate'))
             # Need to remove entry for that entry in our list
             # del self.agent.fitness_datastore[agent]
@@ -119,7 +119,7 @@ class ReceiveAgentUnregisterBehaviour(ReceiveBehaviour):
     def handle_message(self, message):
         aid = serpent.loads(message.content)
         try:
-            del self.agent.fitness_datastore[aid]
+            del self.agent.fitness_datastore[message.sender]
         except Exception as e:
             logging.warning(
                 'Master could not remove agent from datastore. {0}',
@@ -198,6 +198,7 @@ class MasterAgent(Agent):
         self.add_behaviour(KillAgentTicker())
         self.add_behaviour(ReceiveAgentFitnessBehaviour())
         self.add_behaviour(ReproLottoTicker(population=self.evolagent_providers))
+        self.add_behaviour(MoveAgentTicker(period=55))
         self.fitness_datastore = {}
         self.sorted_fitnesses = []
     

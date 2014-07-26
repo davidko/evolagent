@@ -38,7 +38,7 @@ class ComputeFitnessBehaviour(Behaviour):
         self.agent.fitness = self.agent.run_fitness_function()
         logging.info(
             '{0} Done computing fitness, sent report to Master'.format(
-                self.agent.name))
+                self.agent.shortname))
         self.set_done()
 
 class SelectMateBehaviour(ContractNetInitiatorBehaviour):
@@ -216,12 +216,18 @@ class EvolAgent(Agent):
     fitness_function_num_instances = 0
     fitness_function_max_instances = 4
     def setup(self, chromosome=None, fitness=None):
+        self.init_stage1_behaviours(chromosome, fitness)
+        self.init_stage2_behaviours()
+
+    def init_stage1_behaviours(self, chromosome=None, fitness=None):
         if chromosome is None:
             chromosome = [random.randint(0, 255) for _ in range(120)]
        
         self.genes = chromosome
+        self.add_behaviour(ComputeFitnessBehaviour())
+
+    def init_stage2_behaviours(self):
         behaviours = SequentialBehaviour()
-        behaviours.add_behaviour(ComputeFitnessBehaviour())
         behaviours.add_behaviour(ReportFitnessBehaviour())
         behaviours.add_behaviour(
             RegisterServiceBehaviour(service=Service('EvolAgent')))
@@ -234,15 +240,12 @@ class EvolAgent(Agent):
         seq.add_behaviour(UnregisterServiceBehaviour(service=Service('EvolAgent')))
         seq.add_behaviour(MigrateBehaviour())
         self.add_behaviour(seq)
+        logging.info('{0} added migration behaviour...'.format(self.name))
 
     def execute(self):
         """ This method is executed after an agent migration. """
         logging.info('{0} immigrated here.'.format(self.agent.name))
-        behaviours = SequentialBehaviour()
-        behaviours.add_behaviour(ReportFitnessBehaviour())
-        behaviours.add_behaviour(
-            RegisterServiceBehaviour(service=Service('EvolAgent')))
-        self.add_behaviour(behaviours)
+        self.init_stage2_behaviours()
 
     def choose_remote_ams(self):
         amss = self.mts.ams.find_others()

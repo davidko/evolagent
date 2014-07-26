@@ -9,10 +9,16 @@ import random
 from evolagent.agent import EvolAgent
 import spyse.core.behaviours.behaviours as behaviours
 import logging
+import random
 
 class GaitAgent(EvolAgent):
+    def __init__(self, *args, **kwargs):
+        EvolAgent.__init__(self, *args, **kwargs)
+        self.agent = self
+
     def fitness_function(self):
         # First, save fitness to a temporary file
+
         f = tempfile.NamedTemporaryFile()
         gene_str = '\n'.join(map(str, self.genes))
         f.write(gene_str.encode('utf-8'))

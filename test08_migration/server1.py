@@ -16,6 +16,7 @@ from gaitagent import GaitAgent, GaitMasterAgent
 import datetime
 import time
 import serpent
+import uuid
 
 import logging
 
@@ -34,7 +35,7 @@ class MyApp(App):
     def run(self, args):
         population = 20
         for i in range(population):
-            self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
+            self.start_agent(GaitAgent, 'gaitagent{0}'.format(uuid.uuid4()))
         self.start_agent(GaitMasterAgent, 
                          'MasterAgent', 
                          max_agent_population=population)
