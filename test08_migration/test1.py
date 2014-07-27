@@ -45,11 +45,11 @@ class MigrateAgent(gaitagent.GaitAgent):
        
         self.genes = chromosome
         seq = cbehaviours.SequentialBehaviour()
-        seq.add_behaviour(evolagent.agent.ComputeFitnessBehaviour())
-        seq.add_behaviour(evolagent.agent.ReportFitnessBehaviour())
-        seq.add_behaviour(
-            evolagent.agent.RegisterServiceBehaviour(service=Service('EvolAgent')))
-        self.add_behaviour(evolagent.agent.EvolAgentHandleRequestBehaviour())
+        #seq.add_behaviour(evolagent.agent.ComputeFitnessBehaviour())
+        #seq.add_behaviour(evolagent.agent.ReportFitnessBehaviour())
+        #seq.add_behaviour(
+        #    evolagent.agent.RegisterServiceBehaviour(service=Service('EvolAgent')))
+        #self.add_behaviour(evolagent.agent.EvolAgentHandleRequestBehaviour())
         #self.add_behaviour(evolagent.agent.MateParticipantBehaviour())
         seq.add_behaviour(RandomMigrateBehaviour())
         self.add_behaviour(seq)
@@ -60,14 +60,17 @@ class MigrateAgent(gaitagent.GaitAgent):
         self.initialized = False
         logging.info('bloob')
         print('In execute()')
+        print('My name is: ' + self.name)
+        self.add_behaviour(RandomMigrateBehaviour())
+        self.initialized = False
 
 class MyApp(App):
     def run(self, args):
         population = 1
         for _ in range(population):
             self.start_agent(MigrateAgent)
-        self.start_agent(gaitagent.GaitMasterAgent, "MasterAgent",
-            max_agent_population=population)
+        #self.start_agent(gaitagent.GaitMasterAgent, "MasterAgent",
+        #    max_agent_population=population)
 
 if __name__ == "__main__":
     (nsuri, nsdaemon, bcserver) = Pyro4.naming.startNS()
