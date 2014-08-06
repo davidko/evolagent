@@ -101,7 +101,8 @@ class MyApp(App):
             self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
         self.start_agent(MasterAgent, 
                          'MasterAgent', 
-                         max_agent_population=population)
+                         max_agent_population=population,
+                         MigrationEnabled=False)
 
 if __name__=="__main__":
     MyApp()
