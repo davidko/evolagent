@@ -44,6 +44,9 @@ class MigrateAgent(gaitagent.GaitAgent):
         self.initialized = False
         logging.info('bloob')
         print('In execute()')
+        print('My name is: ' + self.name)
+        self.add_behaviour(RandomMigrateBehaviour())
+        self.initialized = False
 
 if __name__ == "__main__":
     App(port=9001, ns='local')
