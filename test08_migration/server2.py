@@ -41,4 +41,8 @@ class MyApp(App):
                          max_agent_population=population)
 
 if __name__ == "__main__":
-    MyApp(port=9001, ns='local')
+    import sys
+    if len(sys.argv) < 2:
+        print('Usage: {0} <nameserver_host>'.format(sys.argv[0]))
+        sys.exit(0)
+    MyApp(port=9001, ns=sys.argv[1])
