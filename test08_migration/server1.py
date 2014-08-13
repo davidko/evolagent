@@ -41,8 +41,14 @@ class MyApp(App):
                          max_agent_population=population)
 
 if __name__ == "__main__":
-    (nsuri, nsdaemon, bcserver) = Pyro4.naming.startNS()
+    import sys
+    if len(sys.argv) < 2:
+        print('Usage: {0} <local_ip_address>'.format(sys.argv[0]))
+        sys.exit(0)
+    (nsuri, nsdaemon, bcserver) = Pyro4.naming.startNS(
+        host=sys.argv[1],
+        bchost=sys.argv[1])
     thread = threading.Thread(target=nsdaemon.requestLoop)
     thread.start()
 
-    MyApp(port=9000, ns='local')
+    MyApp(port=9000, ns=sys.argv[1]+':9090')
