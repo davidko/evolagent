@@ -200,7 +200,7 @@ class MasterAgent(Agent):
         self.add_behaviour(ReproLottoTicker(population=self.evolagent_providers)
 )
         if MigrationEnabled:
-	    self.add_behaviour(MoveAgentTicker(period=55))
+	    self.add_behaviour(MoveAgentTicker(period=120))
         self.fitness_datastore = {}
         self.sorted_fitnesses = []
     
