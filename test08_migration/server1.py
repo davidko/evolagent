@@ -33,7 +33,7 @@ logging.basicConfig(filename='logfile-{0}.log'.format(timestamp()),
 
 class MyApp(App):
     def run(self, args):
-        population = 20
+        population = 200
         for i in range(population):
             self.start_agent(GaitAgent, 'gaitagent{0}'.format(uuid.uuid4()))
         self.start_agent(GaitMasterAgent, 

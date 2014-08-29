@@ -95,7 +95,7 @@ class GaitChromosome(Chromosome):
 
 class MyApp(App):
     def run(self, args):
-        population = 50
+        population = 200
         logging.info('Starting with population of {0}...'.format(population))
         for i in range(population):
             self.start_agent(GaitAgent, 'gaitagent{0}'.format(i))
@@ -105,4 +105,4 @@ class MyApp(App):
                          MigrationEnabled=False)
 
 if __name__=="__main__":
-    MyApp()
+    MyApp(port=9666)

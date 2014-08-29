@@ -197,7 +197,7 @@ class MasterAgent(Agent):
             provider_results=self.evolagent_providers))
         self.add_behaviour(KillAgentTicker())
         self.add_behaviour(ReceiveAgentFitnessBehaviour())
-        self.add_behaviour(ReproLottoTicker(population=self.evolagent_providers)
+        self.add_behaviour(ReproLottoTicker(period=35, population=self.evolagent_providers)
 )
         if MigrationEnabled:
             self.add_behaviour(MoveAgentTicker(period=120))
